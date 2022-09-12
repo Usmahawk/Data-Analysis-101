@@ -1,0 +1,680 @@
+---
+title: "CITS4009 Computational Data Analysis"
+author: "<i>Abdul Momen USMANI(23685219)</i>"
+date: "Semester 2, 2022"
+output:
+  html_document: default
+graphics: yes
+subtitle: Exploratory Data Analysis
+---
+
+<h2>Cleaning the Dataset</h2>
+
+
+```{r}
+AccidentDS <- read.csv(file = '/Users/hamzausmani/CITS4009 Project 1 First Sem/us_data_2000.csv')
+
+str(AccidentDS)
+```
+
+#Identifying the number of nullpoints within the variables and the
+dimension of the dataset
+
+```{r}
+apply(is.na(AccidentDS), 2, sum)
+dimension <- c(ncol(AccidentDS),nrow(AccidentDS))
+dimension
+```
+
+There are 57 columns and 2000 rows
+
+There are many unnecessary columns which should be removed in order to
+prevent hampering our visualization
+
+```{r}
+RefinedColNames <- colnames(AccidentDS)
+```
+
+Before removing unnecessary columns there are many points to be noted
+There are many columns which have an equivalent number of same columns
+such as: CONTROLLER_ID is equivalent to CONTROLLER_NAME OPERATOR_ID is
+equivalent to OPERATOR_NAME SUBUNIT_CS is equivalent to SUBUNIT The year
+subset of ACCIDENT_DT is equivalent to CAL_YR DEGREE_INJURY_CD is
+equivalent to DEGREE_INJURY UG_LOCATION_CD is equivalent to UG_LOCATION
+UG_MINING_CD is equivalent to UG_MINING_METHOD MINING_EQUIP_CD is
+equivalent to MINING_EQUIP EQUIP_MFR_CD is equivalent to EQUIP_MFR_NAME
+CLASSIFICATION_CD is equivalent to CLASSIFICATION ACCIDENT_TYPE_CD is
+equivalent to ACCIDENT_TYPE OCCUPATION_CD is equivalent to OCCUPATION
+ACTIVITY_CD is equivalent to ACTIVITY INJURY_SOURCE_CD is equivalent to
+INJURY_SOURCE NATURE_INJURY_CD is equivalent to NATURE_INJURY
+INJ_BODY_PART_CD is equivalent to INJ_BODY_PART IMMED_NOTIFY_CD is
+equivalent to IMMED_NOTIFY
+
+Now we are checking the columns that have missing values
+
+```{r}
+DropColumns<- AccidentDS
+
+drop <- c("MINE_ID","CONTROLLER_ID","OPERATOR_ID","DOCUMENT_NO","SUBUNIT_CD","ACCIDENT_DT","DEGREE_INJURY_CD","UG_LOCATION_CD","UG_MINING_METHOD_CD","MINING_EQUIP_CD","EQUIP_MFR_CD","CLASSIFICATION_CD","ACCIDENT_TYPE_CD","ACCIDENT_TYPE_CD","OCCUPATION_CD","ACTIVITY_CD","INJURY_SOURCE_CD","NATURE_INJURY_CD","INJ_BODY_PART_CD","IMMED_NOTIFY_CD","NARRATIVE","CLOSED_DOC_NO")
+
+df = DropColumns[,!(names(DropColumns) %in% drop)]
+
+head(df)
+
+colnames(df)
+#apply(is.na(df), 2, sum) including the non missing values
+
+```
+
+We need to convert the missing values to NA
+
+```{r}
+library(dplyr)
+mutated_data <-
+  mutate(df,
+         CONTRACTOR_ID = na_if(CONTRACTOR_ID, ""),
+         ACCIDENT_TIME = ifelse(ACCIDENT_TIME >2400, NA, ACCIDENT_TIME),
+         UG_LOCATION = ifelse(UG_LOCATION =="NO VALUE FOUND", NA, UG_LOCATION),
+         UG_MINING_METHOD = ifelse(UG_MINING_METHOD =="NO VALUE FOUND", NA, UG_MINING_METHOD),
+         MINING_EQUIP = ifelse(MINING_EQUIP =="NO VALUE FOUND", NA, MINING_EQUIP),
+         EQUIP_MFR_NAME = ifelse(EQUIP_MFR_NAME =="NO VALUE FOUND", NA, EQUIP_MFR_NAME),
+         EQUIP_MODEL_NO = ifelse(EQUIP_MODEL_NO =="?" || EQUIP_MODEL_NO =="", NA, EQUIP_MODEL_NO),
+         SHIFT_BEGIN_TIME = ifelse(SHIFT_BEGIN_TIME >2400, NA, SHIFT_BEGIN_TIME),
+         TOT_EXPER = ifelse(TOT_EXPER =="", NA, TOT_EXPER),
+         MINE_EXPER = ifelse(MINE_EXPER =="", NA, MINE_EXPER),
+         JOB_EXPER = ifelse(JOB_EXPER =="", NA, JOB_EXPER),
+         OCCUPATION = ifelse(OCCUPATION =="NO VALUE FOUND", NA, OCCUPATION),
+         ACTIVITY = ifelse(ACTIVITY =="NO VALUE FOUND", NA, ACTIVITY),
+         INJURY_SOURCE = ifelse(INJURY_SOURCE =="NO VALUE FOUND", NA, INJURY_SOURCE),
+         NATURE_INJURY = ifelse(NATURE_INJURY =="NO VALUE FOUND", NA, NATURE_INJURY),
+         INJ_BODY_PART = ifelse(INJ_BODY_PART =="NO VALUE FOUND", NA, INJ_BODY_PART),
+         SCHEDULE_CHARGE = ifelse(SCHEDULE_CHARGE =="", NA, SCHEDULE_CHARGE),
+         DAYS_RESTRICT = ifelse(DAYS_RESTRICT =="", NA, DAYS_RESTRICT),
+         DAYS_LOST = ifelse(DAYS_LOST =="", NA, DAYS_LOST),
+         TRANS_TERM = ifelse(TRANS_TERM =="", NA, TRANS_TERM),
+         RETURN_TO_WORK_DT = ifelse(RETURN_TO_WORK_DT =="", NA, RETURN_TO_WORK_DT),
+         IMMED_NOTIFY = ifelse(IMMED_NOTIFY =="NO VALUE FOUND", NA, IMMED_NOTIFY),
+         INVEST_BEGIN_DT = ifelse(INVEST_BEGIN_DT =="", NA, INVEST_BEGIN_DT),
+         COAL_METAL_IND = ifelse(COAL_METAL_IND =="", NA, COAL_METAL_IND)
+    )
+```
+
+Checking the number of null values now after converting "?" and "VALUE
+NOT FOUND" to NA
+
+```{r}
+count_missing <- function(df) {
+sapply(df, FUN = function(col) sum(is.na(col)) )
+}
+nacounts <- count_missing(mutated_data)
+hasNA = which(nacounts > 0)
+nacounts[hasNA]
+```
+
+By looking at the dataset after replacing all the sentinel values with
+NA we see that CONTRACTOR_ID column has most of its values as NA so it
+is safe to drop it
+
+```{r}
+colnames(mutated_data)
+DropColumns<- mutated_data
+drop <- c("CONTRACTOR_ID")
+mutated_data = DropColumns[,!(names(DropColumns) %in% drop)]
+colnames(mutated_data)
+nacounts <- count_missing(mutated_data)
+hasNA = which(nacounts > 0)
+nacounts[hasNA]
+dimension <- c(ncol(mutated_data),nrow(mutated_data))
+dimension
+```
+
+We see that column SHIFT_BEGIN_TIME has 94 null rows so it is safe to
+drop the rows
+
+```{r}
+newdata <-
+  mutated_data[!is.na(mutated_data$SHIFT_BEGIN_TIME),]
+nrow(mutated_data)
+nrow(newdata)
+nacounts <- count_missing(newdata)
+hasNA = which(nacounts > 0)
+nacounts[hasNA]
+```
+
+```{r}
+newdata2 <-  newdata[!is.na(newdata$ACCIDENT_TIME),]
+nrow(mutated_data)
+nrow(newdata2)
+```
+
+after removing the rows from ACCIDENT_TIME which were 87 rows and it was
+safe to remove them
+
+```{r}
+dimension <- c(ncol(newdata2),nrow(newdata2))
+dimension
+nacounts <- count_missing(newdata2)
+hasNA = which(nacounts > 0)
+nacounts[hasNA]
+```
+
+Now we replace the variables that numeric with the mean of the column
+
+```{r}
+
+library(dplyr)
+new_data3 <-
+  mutate(newdata2,
+         TOT_EXPER = ifelse(is.na(TOT_EXPER),format(round(mean(newdata2$TOT_EXPER, na.rm = TRUE), 3), nsmall = 3) , TOT_EXPER),
+         MINE_EXPER = ifelse(is.na(MINE_EXPER), format(round(mean(newdata2$MINE_EXPER, na.rm = TRUE), 3), nsmall = 3), MINE_EXPER),
+         JOB_EXPER = ifelse(is.na(JOB_EXPER), format(round(mean(newdata2$JOB_EXPER, na.rm = TRUE), 3), nsmall = 3), JOB_EXPER),    )
+nacounts <- count_missing(new_data3)
+hasNA = which(nacounts > 0)
+nacounts[hasNA]
+```
+
+Now we process the Categorical values and replace the NA values with a
+variable which makes sense
+
+```{r}
+library(dplyr)
+new_data4 <-
+  mutate(new_data3,
+         UG_LOCATION = ifelse(is.na(UG_LOCATION), "UNKNOWN_UG_LOCATION" , UG_LOCATION),
+         UG_MINING_METHOD = ifelse(is.na(UG_MINING_METHOD), "UNKNOWN_UG_MINING_METHOD" , UG_MINING_METHOD),
+         MINING_EQUIP = ifelse(is.na(MINING_EQUIP), "INVALID_EQUIPMENT" , MINING_EQUIP),
+         EQUIP_MFR_NAME = ifelse(is.na(EQUIP_MFR_NAME), "INVALID_MFR_CODE", EQUIP_MFR_NAME),
+         OCCUPATION = ifelse(is.na(OCCUPATION), "INVALID_OCCUPATION", OCCUPATION),
+         ACTIVITY = ifelse(is.na(ACTIVITY), "INVALID_ACTIVITY", ACTIVITY),
+         INJURY_SOURCE = ifelse(is.na(INJURY_SOURCE), "INVALID_INJURY", INJURY_SOURCE),
+         NATURE_INJURY = ifelse(is.na(NATURE_INJURY), "INVALID_NATURE_INJURY", NATURE_INJURY),
+         INJ_BODY_PART = ifelse(is.na(INJ_BODY_PART), "INVALID_INJ_BODY_PART", INJ_BODY_PART),
+         SCHEDULE_CHARGE = ifelse(is.na(SCHEDULE_CHARGE), format(round(mean(new_data3$SCHEDULE_CHARGE, na.rm = TRUE), 3), nsmall = 3), SCHEDULE_CHARGE),
+         DAYS_RESTRICT = ifelse(is.na(DAYS_RESTRICT), 0, DAYS_RESTRICT), 
+         # Since in the data dictionary or the details of the variables it is clearly stated
+         # that if there are null values in this case then that means the DAYS_RESTRICT would be 0 for the null values which do not apply
+         DAYS_LOST = ifelse(is.na(DAYS_LOST), 0, DAYS_LOST),
+         # Since in the data dictionary or the details of the variables it is clearly stated
+         # that if there are null values in this case then that means the DAYS_LOST would be 0 for the null values which do not apply
+         TRANS_TERM = ifelse(is.na(TRANS_TERM), "INVALID_TRANS_TERM", TRANS_TERM),
+         RETURN_TO_WORK_DT = ifelse(is.na(RETURN_TO_WORK_DT), "INVALID_RETURN_TO_WORK_DT", RETURN_TO_WORK_DT),
+         IMMED_NOTIFY = ifelse(is.na(IMMED_NOTIFY), "INVALID_NOTIFICATION", IMMED_NOTIFY),
+         INVEST_BEGIN_DT = ifelse(is.na(INVEST_BEGIN_DT), "INVALID_INVEST_BEGIN_DT", INVEST_BEGIN_DT),
+    )
+#CONVERTING THE RETURN_TO_WORK_DT from date format to year format
+nacounts <- count_missing(new_data4)
+hasNA = which(nacounts > 0)
+nacounts[hasNA]
+```
+This point is at the ending of the DATA CLEANING AND PROCESSING stage
+now we visualise with the variables we are left with after Cleaning and
+Processing the data
+
+<h2>Exploratory Data Analysis with one variable</h2>
+<h3>Bar charts</h3>
+
+Firstly we try to find the frequency of the DEGREE_INJURY column to
+check the severity of the injury of the accident using a Sorted
+Horizontal Bar Charts
+
+```{r}
+library(ggplot2)
+#Over here we see that there needs a reordering of the values in order to find a clearer output
+#So we sort the values alphabetically in the increasing order and added default colors to pick all the variables
+statesums <- table(new_data4$DEGREE_INJURY)
+statef <- as.data.frame(statesums)
+colnames(statef) <- c("DEGREE_INJURY", "count")
+ statef <- transform(statef,
+          DEGREE_INJURY=reorder(DEGREE_INJURY, -desc(count)))
+
+
+g <- ggplot(statef, 
+            aes(x = DEGREE_INJURY, y = count, label = count, fill="maroon"))+ coord_flip() +  geom_col() +  geom_text(nudge_y = -1, color = "black") +   ggtitle("DEGREE_INJURY against count") +   xlab("DEGREE_INJURY") + ylab("count") + 
+  theme_bw() + theme(legend.position = "none") + 
+  theme(plot.title = element_text(hjust = 0.8)) 
+g
+```
+
+
+In the Plot above we get to see that the severity of the injuries or the
+degree of injuries where the most of all the categories the employees
+fell in the category where they had Days away from work only, "No days
+away from work and no restricted activities" and "Days restricted
+activity only" which means employees mostly were away from work and some
+even did not get days off and action restrictions in the work area and
+some of them had days restricted activity only. Other categories include
+"Accidents only" and "Days away from work and restricted actions" which
+means they faced just the accidents and days off from work with limited
+activities in the work environment. Other minor categories included
+"Fatality","Occupational Illness".
+
+Next we will explore the UG_LOCATION column to check where the accident
+occured or where the employee was when the accident occured
+
+```{r}
+library(ggplot2)
+
+#Over here we see that there also needs a reordering of the values in order to find a clearer output
+#So we sort the values alphabetically in the increasing order and added default colors to pick all the variables
+
+statesums <- table(new_data4$UG_LOCATION)
+statef <- as.data.frame(statesums)
+colnames(statef) <- c("UG_LOCATION", "count")
+ statef <- transform(statef,
+          UG_LOCATION=reorder(UG_LOCATION, -desc(count)))
+
+g <- ggplot(statef, 
+            aes(x = UG_LOCATION, y = count, label = count, fill="maroon"))+ coord_flip() +
+
+  geom_col() +
+  geom_text(nudge_y = -1, color = "black") + 
+  ggtitle("UG_LOCATION against count") + 
+  xlab("UG_LOCATION") + ylab("count") +
+  theme_bw() + theme(legend.position = "none") + 
+  theme(plot.title = element_text(hjust = 0.8)) 
+g
+```
+
+In the plot above we get get to see there is a suspiciously high count
+for UNKNOWN_UG_LOCATION meaning the underground location is unknown to
+us. But if we see the corresponding SUBUNIT column we can deduce
+something so we plot the barchart for the subunits to see which subunit
+the accident occured
+
+```{r}
+
+
+library(ggplot2)
+#Over here we see that there also needs a reordering of the values in order to find a clearer output
+#So we sort the values alphabetically in the increasing order and added default colors to pick all the variables
+
+statesums <- table(new_data4$SUBUNIT)
+statef <- as.data.frame(statesums)
+colnames(statef) <- c("SUBUNIT", "count")
+ statef <- transform(statef,
+          SUBUNIT=reorder(SUBUNIT, -desc(count)))
+
+
+
+g <- ggplot(statef, 
+            aes(x = SUBUNIT, y = count, label = count, fill="maroon"))+ coord_flip() +
+  geom_col() +
+  geom_text(nudge_y = -1, color = "black") + 
+  ggtitle("SUBUNIT against count") + 
+  xlab("SUBUNIT") + ylab("count") +
+  theme_bw() + theme(legend.position = "none") + 
+  theme(plot.title = element_text(hjust = 0.8)) 
+g
+```
+
+Although we see that the location might be in the underground but after
+seeing the subunit we can deduce that although the location might be
+unknown but for subunits most of the accident occured were mainly in the
+Strip,Quarry,Open Pit And Mill Operation/Preparation Plant and in the
+Underground subunit.
+
+Next we can explore the UG_MINING_METHOD or the Underground mining
+method
+
+```{r}
+
+
+#Over here we see that there also needs a reordering of the values in order to find a clearer output
+#So we sort the values alphabetically in the increasing order and added default colors to pick all the variables
+
+statesums <- table(new_data4$UG_MINING_METHOD)
+statef <- as.data.frame(statesums)
+colnames(statef) <- c("UG_MINING_METHOD", "count")
+ statef <- transform(statef,
+          UG_MINING_METHOD=reorder(UG_MINING_METHOD, -desc(count)))
+
+
+g <- ggplot(statef, 
+            
+            aes(x = UG_MINING_METHOD, y = count, label = count, fill="maroon"))+ coord_flip() +
+  geom_col() +
+  geom_text(nudge_y = -1, color = "black") + 
+  ggtitle("UG_MINING_METHOD against count") + 
+  xlab("UG_MINING_METHOD") + ylab("count") +
+  theme_bw() + theme(legend.position = "none") + 
+  theme(plot.title = element_text(hjust = 0.8)) 
+g
+
+```
+
+We have seem to come across anomalies where it shows that the Mining
+Methods are missing for the maximum counts so the mining methods are
+unknown for most of the cases maybe if we explore other columns we maybe
+able to deduce what this column is trying to tell us
+
+Now we see the MINING_EQUIP column to see what Mining Equipments were
+there in the accident
+
+```{r}
+#Over here we see that there also needs a reordering of the values in order to find a clearer output
+#So we sort the values alphabetically in the increasing order and added default colors to pick all the variables
+df <- as.data.frame(table(new_data4$MINING_EQUIP))
+df <- df[order(-df$Freq),]
+dfshort <- df[1:20,]
+
+statesums <- dfshort
+statef <- statesums
+colnames(statef) <- c("MINING_EQUIP", "count")
+ statef <- transform(statef,
+          MINING_EQUIP=reorder(MINING_EQUIP, -desc(count)))
+
+
+g <- ggplot(statef, 
+            aes(x = MINING_EQUIP, y = count, label = count, fill="maroon"))+ coord_flip() +
+  geom_col() +
+  geom_text(nudge_y = -1, color = "black") + 
+  ggtitle("MINING_EQUIP against count") + 
+  xlab("MINING_EQUIP") + ylab("count") +
+  theme_bw() + theme(legend.position = "none") + 
+  theme(plot.title = element_text(hjust = 0.7)) 
+g
+```
+Since the number of MINING_EQUIPs were huge we had to cut it down to top 20 values in order to plot a clear bar chart
+Unfortunately there are so many categories that horizontal barcharts
+might not be appropriate but we can still see that most of the
+equipments during the accident were Invalid Equipments as it was
+mentioned that any missing values in the column would be considered as
+an invalid equipment according to the data dictionary.
+
+So up until this stage we found out that most of the accidents occured
+in unknow Underground locations with unknown mining methods with invalid
+equipments.
+
+Next we explore the CLASSIFICATION column
+
+```{r}
+
+#Over here we see that there also needs a reordering of the values in order to find a clearer output
+#So we sort the values alphabetically in the increasing order and added default colors to pick all the variables
+df <- as.data.frame(table(new_data4$OCCUPATION))
+df <- df[order(-df$Freq),]
+dfshort <- df[1:20,]
+
+statesums <- dfshort
+statef <- statesums
+colnames(statef) <- c("CLASSIFICATION", "count")
+ statef <- transform(statef,
+          CLASSIFICATION=reorder(CLASSIFICATION, -desc(count)))
+
+
+g <- ggplot(statef, 
+            aes(x = CLASSIFICATION, y = count, label = count, fill="maroon"))+ coord_flip() +
+  geom_col() +
+  geom_text(nudge_y = -1, color = "black") + 
+  ggtitle("CLASSIFICATION against count") + 
+  xlab("CLASSIFICATION") + ylab("count") +
+  theme_bw() + theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = rel(0.6) ))+
+  theme(axis.text.y=element_text(size=rel(0.6)))
+g
+```
+Since the number of CLASSIFICATION was huge we had to reduce it down to first 20 values in order to perform decent plotting
+We can deduce that most of the Classification falls on Handling of
+materials, Slip or fall of person, Non powered handtools, machinery,
+fall of roof or back and power haulage. So most of the Accidents
+happened due to Handling of materials
+
+We can be more clear if we explore the ACCIDENT_TYPE column
+
+```{r}
+
+#Over here we see that there also needs a reordering of the values in order to find a clearer output
+#So we sort the values alphabetically in the increasing order and added default colors to pick all the variables
+
+statesums <- table(new_data4$ACCIDENT_TYPE)
+statef <- as.data.frame(statesums)
+colnames(statef) <- c("ACCIDENT_TYPE", "count")
+ statef <- transform(statef,
+          ACCIDENT_TYPE=reorder(ACCIDENT_TYPE, -desc(count)))
+
+
+g <- ggplot(statef, 
+            aes(x = ACCIDENT_TYPE, y = count, label = count, fill="maroon"))+ coord_flip() +
+  geom_col() +
+  geom_text(nudge_y = -1, color = "black") + 
+  ggtitle("ACCIDENT_TYPE against count") + 
+  xlab("ACCIDENT_TYPE") + ylab("count") +
+  theme_bw() + theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = rel(0.7) ))+
+  theme(axis.text.y=element_text(size=rel(0.6)))
+g
+```
+
+In the plot above we see that most of the Accident types from the
+ACCIDENT_TYPE columns is the N.E.C classified Accidents meaning when an
+accident is classified as bodily reaction and exertion, n.e.c., it
+refers to an accident that resulted from a combination of free bodily
+motion and excessive physical effort or action. It is a type of bodily
+reaction and exertion accident. However, it is a bodily reaction and
+exertion accident that does not fit or fall into a category. It is
+classified as n.e.c.. This means it is not elsewhere classified. Other
+accident types include the ones without injuries and over exertion in
+lifting objects. Other down the row we see accidents such as getting
+struck by a stationary objects and caught in, under and below moving
+objects.
+
+Which brings a question whether the employees who faced the most of the
+accidents were inexperienced or experienced
+
+So now we explore the column which gives us the information about the
+employee's occupation from the OCCUPATION column
+
+```{r}
+
+#Over here we see that there also needs a reordering of the values in order to find a clearer output
+#So we sort the values alphabetically in the increasing order and added default colors to pick all the variables
+df <- as.data.frame(table(new_data4$OCCUPATION))
+df <- df[order(-df$Freq),]
+dfshort <- df[1:20,]
+statesums <- dfshort
+statef <- statesums
+colnames(statef) <- c("OCCUPATION", "count")
+ statef <- transform(statef,
+          OCCUPATION=reorder(OCCUPATION, -desc(count)))
+
+g <- ggplot(statef, 
+            aes(x = OCCUPATION, y = count, label = count, fill="maroon"))+ coord_flip() +
+  geom_col() +
+  geom_text(nudge_y = -1, color = "black") + 
+  ggtitle("OCCUPATION against count") + 
+  xlab("OCCUPATION") + ylab("count") +
+  theme_bw() + theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = rel(0.7) ))+
+  theme(axis.text.y=element_text(size=rel(0.6)))
+g
+```
+Since the number of OCCUPATIONs were huge we had to cut it down to first 20 values in order to do comparison
+In this plot above we see that most of the occupation from the Bar chart
+of the OCCUPATION are from the group Maintanence man, Mechanic,
+Serviceman/Repair,Boilermaker,Fueler, Tire tech, Field Service tech and
+the second most occuring group is an Invalid group which raises the
+question, What Occupation were they invovled with? Other columns
+included Warehouse Bagger, Store Keeper, Packager, Fabricator, Cleaning
+Plant Operator
+
+Next we explore the activities that they were doing at that time so we
+check the ACTIVITIES column
+
+```{r}
+
+#Over here we see that there also needs a reordering of the values in order to find a clearer output
+#So we sort the values alphabetically in the increasing order and added default colors to pick all the variables
+df <- as.data.frame(table(new_data4$ACTIVITY))
+df <- df[order(-df$Freq),]
+dfshort <- df[1:20,]
+
+statesums <- dfshort
+statef <- statesums
+colnames(statef) <- c("ACTIVITY", "count")
+ statef <- transform(statef,
+          ACTIVITY=reorder(ACTIVITY, -desc(count)))
+
+g <- ggplot(statef, 
+            aes(x = ACTIVITY, y = count, label = count, fill="maroon"))+ coord_flip() +
+  geom_col() +
+  geom_text(nudge_y = -1, color = "black") + 
+  ggtitle("ACTIVITY against count") + 
+  xlab("ACTIVITY") + ylab("count") +
+  theme_bw() + theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = rel(0.7) ))+
+  theme(axis.text.y=element_text(size=rel(0.6)))
+g
+```
+Since the number of ACTIVITY was very huge we had to cut it down to first 20 values in order to do comparison
+We find out from the above plot that most of the activities were
+Handling Supplies Materials, Machine Maintanence Repairing,Handling Non
+Powered Tools, Invalid Activities this raises another question whether
+they were experienced or not ao to further clear our doubts we look at
+INJURY_SOURCE column
+
+```{r}
+
+#Over here we see that there also needs a reordering of the values in order to find a clearer output
+#So we sort the values alphabetically in the increasing order and added default colors to pick all the variables
+df <- as.data.frame(table(new_data4$INJURY_SOURCE))
+df <- df[order(-df$Freq),]
+dfshort <- df[1:10,]
+
+ 
+statesums <- dfshort
+statef <- statesums
+colnames(statef) <- c("INJURY_SOURCE", "count")
+ statef <- transform(statef,
+          INJURY_SOURCE=reorder(INJURY_SOURCE, -desc(count)))
+
+g <- ggplot(statef, 
+            aes(x = INJURY_SOURCE, y = count, label = count, fill="maroon"))+ coord_flip() +
+  geom_col() +
+  geom_text(nudge_y = -1, color = "black") + 
+  ggtitle("INJURY_SOURCE against count") + 
+  xlab("INJURY_SOURCE") + ylab("count") +
+  theme_bw() + theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = rel(0.7) ))+
+  theme(axis.text.y=element_text(size=rel(0.6)))
+g
+```
+Since the amount of INJURY_SOURCE is so huge that we took the top 10 of the values and plotted our graph
+
+In the above plot most of the injury happened from metal pipe wire
+nails, invalid injuries, metal covers and guards, the ground broken rock
+coal and caving rock coal. Further Single Column investigation is needed
+to Find what the invalid columns are and also to find a link to Injuries
+or accidents
+
+```{r}
+
+#Over here we see that there also needs a reordering of the values in order to find a clearer output
+#So we sort the values alphabetically in the increasing order and added default colors to pick all the variables
+
+statesums <- table(new_data4$NATURE_INJURY)
+statef <- as.data.frame(statesums)
+colnames(statef) <- c("NATURE_INJURY", "count")
+ statef <- transform(statef,
+          NATURE_INJURY=reorder(NATURE_INJURY, -desc(count)))
+
+
+g <- ggplot(statef, 
+            aes(x = NATURE_INJURY, y = count, label = count, fill="maroon"))+ coord_flip() +
+
+  geom_col() +
+  geom_text(nudge_y = -1, color = "black") + 
+  ggtitle("NATURE_INJURY against count") + 
+  xlab("NATURE_INJURY") + ylab("count") +
+  theme_bw() + theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = rel(0.7) ))+
+  theme(axis.text.y=element_text(size=rel(0.6)))
+g
+```
+
+in the above plot most of the nature of the injury falls under Open
+Wounds, Fractured Chip and Bruises and some even have Bruises and there
+are some that fall into Invalid Injury sources. So it is safe to
+consider the invalid injury sources has missing since they might not be
+working there in the mining sectors.
+
+<h3>Histogram</h3>
+
+We would look into the next column of interest which is DAYS_LOST so for
+this we will be using a histogram
+
+```{r}
+ggplot(new_data4, aes(x=DAYS_LOST))  + 
+geom_histogram(binwidth=10, fill="Gray")+ggtitle("DAYS_LOST against count")+theme(plot.title = element_text(size = rel(0.7) ))
+#BINS need to be wider to make it less noisy
+```
+
+We can see in the plot above that there are outliers at 200 to 360 days
+and one at 450 and one at 500 and most of the concentration is at around
+7 days and it is suspiciously very high around this are but a histogram
+of this plot is not much clear as to what meaning we should find out
+from this so we can use a Density Plot for this column
+
+```{r}
+library(scales)
+##Since this the above code gives a scewed graph we therefore use logarithms
+#density plot was positively skewed so I used logarithms
+# Basic density plot in ggplot2
+ggplot(new_data4, aes(x = DAYS_LOST))  + 
+  geom_density() + scale_x_log10(breaks=c(2.5,5,45,360,450,1000),labels=comma) +
+  annotation_logticks(sides="bt") + theme(text = element_text(size = 10))+ggtitle("DAYS_LOST against count")+theme(plot.title = element_text(size = rel(0.7) ))
+```
+
+
+
+We see that there are two peaks where one is at 2.5 days and the other one is at 45 days lost so these are the maximum days that were lost as a consequence to the accident
+
+<h2>Exploratory Data Analysis with two variables</h2>
+
+Now it is time for the comparison of two or more variables 
+We will look at the columns UG_LOCATION against DEGREE_INJURY to see a
+relation
+
+<h3>Heat maps</h3>
+
+```{r}
+ggplot(data = new_data4) +ggtitle("CAL_YR against DEGREE_INJURY")+theme(plot.title = element_text(size = rel(0.7) )) + 
+  geom_count(mapping = aes(x=CAL_YR, y=DEGREE_INJURY))+theme(axis.text.x = element_text(size = 5))+theme(axis.text.x = element_text(angle = 30, vjust = 1, hjust = 1)) 
+```
+
+We can clearly state that the DEGREE_INJURY decreases accross the accident years which is CAL_YR since density decreases across the years
+
+Next we take a look at the relationship between DEGREE_INJURY and JOB_EXPER through a scatter plot
+```{r}
+#degree injury against job experience
+ggplot(data= new_data4, mapping = aes(JOB_EXPER,DEGREE_INJURY)) + ggtitle("JOB_EXPER against DEGREE_INJURY")+theme(plot.title = element_text(size = rel(0.7) )) + geom_point(aes(as.numeric(JOB_EXPER),DEGREE_INJURY,color= DEGREE_INJURY), show.legend = FALSE)
+```
+
+We can clearly state that as JOB_EXPER or job experience increases the injury degree or DEGREE_INJURY decreases
+
+<h3>Density plots and Heat maps</h3>
+```{r, fig.width=6}
+require(gridExtra)
+#shift time against accident time
+g1<-ggplot(data= new_data4, mapping = aes(SHIFT_BEGIN_TIME,ACCIDENT_TIME)) + ggtitle("SHIFT_BEGIN_TIME against ACCIDENT_TIME") +theme(plot.title = element_text(size = rel(0.7) ))+ geom_point(aes(SHIFT_BEGIN_TIME,ACCIDENT_TIME,color= SHIFT_BEGIN_TIME), show.legend = FALSE)
+
+g2<-ggplot(data = new_data4) +
+  geom_count(mapping = aes(x=SHIFT_BEGIN_TIME, y=ACCIDENT_TIME))+theme(axis.text.x = element_text(size = 5))+theme(axis.text.x = element_text(angle = 90, vjust = 1, hjust = 1))+theme(axis.text.y = element_text(angle = 90, vjust = 1, hjust = 1))
+
+grid.arrange(g1, g2, nrow=2)
+ 
+```
+
+
+
+The plot for both the graphs. The heat map and density plot shows that the accidents occured more between shifts of 6000 which is 6am and
+7000 which is 7am 
+
+```{r, fig.height=8, fig.width=8}
+ggplot(data = new_data4) +
+  geom_count(mapping = aes(x=ACCIDENT_TIME, y=OCCUPATION))+theme(axis.text.x = element_text(size = 5))+theme(axis.text.y = element_text(size = 5))+theme(axis.text.y = element_text(angle = 0, vjust = 1, hjust = 1))+ggtitle("ACCIDENT_TIME against OCCUPATION") +theme(plot.title = element_text(size = rel(0.7) ))
+
+```
+Referring to the plot above the Occupation of Maintenance man,Mechanic, Repair/Serviceman,Boilermaker etc has the most dense ACCIDENT_TIME between approximately 7500 and 1500 of the 24 hour clock of the ACCIDENT_TIME axis 
+and we also get to see that the INVALID_OCCUPATION of the OCCUPATION axis had uniform accident in the ACCIDENT_TIME axis throughout from 0000 to 2400 with the same density of the heat map. We can assume that the INVALID_OCCUPATION falls well underneath occupations which include excessive physical work like a movie set where stunt people practice their movie shots.
+
+<h2>End of the Exploratory Data Analysis</h2>
